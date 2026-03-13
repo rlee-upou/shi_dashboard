@@ -4,11 +4,6 @@ import React, { useState, useEffect } from 'react';
 // Uncomment the line below when you move to your local VS Code environment!
 import { createClient } from '@supabase/supabase-js';
 
-// --- CANVAS PREVIEW MOCK ---
-// The Canvas preview environment cannot import external database drivers directly. 
-// We are mocking the createClient function here so you can preview the UI.
-// DELETE THIS MOCK FUNCTION when you move to VS Code!
-
 
 import { 
   Activity, Users, TrendingUp, FileText, CheckCircle, AlertCircle, Map, Clock, LayoutDashboard, RefreshCw
@@ -18,8 +13,8 @@ import {
 // SUPABASE INITIALIZATION
 // ==========================================
 // For local VS Code, use your .env file by replacing the two lines below with:
- const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
- const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -64,65 +59,49 @@ export default function LiveDashboard() {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch all barangays
-      const { data: bgys, error: bgyError } = await supabase.from('barangays').select('id, name');
-      if (bgyError) throw bgyError;
+      // 1. Fetch pre-calculated data directly from our new SQL View
+      const { data: metrics, error } = await supabase
+        .from('live_dashboard_metrics')
+        .select('*');
+        
+      if (error) throw error;
 
-      // 2. Fetch all activity logs joined with resident's barangay_id
-      const { data: logs, error: logError } = await supabase
-        .from('activity_logs')
-        .select(`
-          daily_steps,
-          weekly_exercise_mins,
-          residents ( barangay_id )
-        `);
-      if (logError) throw logError;
+      // 2. Aggregate City-Wide Global Stats from the View
+      let totalResidents = 0;
+      let sumStepsWeighted = 0;
+      let sumMinsWeighted = 0;
+      let totalSedentary = 0;
 
-      // 3. Process the Data (Aggregation)
-      let totalSteps = 0;
-      let totalMins = 0;
-      let sedentaryCount = 0;
-      let bgyAggregates = {}; // Track stats per barangay
+      const calculatedRankings = [];
 
-      logs.forEach(log => {
-        totalSteps += log.daily_steps || 0;
-        totalMins += log.weekly_exercise_mins || 0;
-        if (log.daily_steps < 5000) sedentaryCount++;
+      metrics.forEach((bgy, index) => {
+        const count = bgy.total_unique_residents || 0;
+        if (count > 0) {
+          totalResidents += count;
+          sumStepsWeighted += (bgy.barangay_avg_steps * count);
+          sumMinsWeighted += (bgy.barangay_avg_mins * count);
+          totalSedentary += (bgy.sedentary_residents || 0);
 
-        const bId = log.residents?.barangay_id;
-        if (bId) {
-          if (!bgyAggregates[bId]) bgyAggregates[bId] = { count: 0, steps: 0 };
-          bgyAggregates[bId].count++;
-          bgyAggregates[bId].steps += log.daily_steps;
+          // Setup Rankings Array
+          const colors = ['bg-indigo-600', 'bg-teal-500', 'bg-amber-500', 'bg-rose-500', 'bg-slate-400'];
+          calculatedRankings.push({
+            name: bgy.barangay_name,
+            steps: bgy.barangay_avg_steps,
+            color: colors[index % colors.length]
+          });
         }
       });
 
-      const totalPolled = logs.length;
-      
-      // Update Global Stats
+      // 3. Update Global State
       setStats({
-        avgSteps: totalPolled > 0 ? Math.round(totalSteps / totalPolled) : 0,
-        avgExercise: totalPolled > 0 ? Math.round(totalMins / totalPolled) : 0,
-        totalPolled: totalPolled,
-        sedentaryRate: totalPolled > 0 ? Math.round((sedentaryCount / totalPolled) * 100) : 0
+        avgSteps: totalResidents > 0 ? Math.round(sumStepsWeighted / totalResidents) : 0,
+        avgExercise: totalResidents > 0 ? Math.round(sumMinsWeighted / totalResidents) : 0,
+        totalPolled: totalResidents,
+        sedentaryRate: totalResidents > 0 ? Math.round((totalSedentary / totalResidents) * 100) : 0
       });
 
-      // Update Rankings
-      const calculatedRankings = bgys.map((b, index) => {
-        const bgyData = bgyAggregates[b.id] || { count: 0, steps: 0 };
-        const bgyAvg = bgyData.count > 0 ? Math.round(bgyData.steps / bgyData.count) : 0;
-        
-        // Assign colors dynamically based on rank/index
-        const colors = ['bg-indigo-600', 'bg-teal-500', 'bg-amber-500', 'bg-rose-500', 'bg-slate-400'];
-        
-        return {
-          name: b.name,
-          steps: bgyAvg,
-          color: colors[index % colors.length]
-        };
-      }).sort((a, b) => b.steps - a.steps); // Sort highest to lowest
-
-      setRankings(calculatedRankings);
+      // 4. Update Rankings State (Highest steps first)
+      setRankings(calculatedRankings.sort((a, b) => b.steps - a.steps));
       setLastUpdated(new Date().toLocaleTimeString());
 
     } catch (error) {
