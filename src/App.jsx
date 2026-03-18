@@ -220,7 +220,7 @@ export default function App() {
     setAiSummary('');
 
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // The execution environment provides the key at runtime
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
     const locationName = selectedBgy === 'ALL' ? 'Quezon City (City-Wide)' : barangays.find(b => b.id.toString() === selectedBgy)?.name || 'the selected area';
 
