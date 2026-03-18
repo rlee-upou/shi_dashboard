@@ -220,7 +220,7 @@ export default function App() {
     setAiSummary('');
 
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // The execution environment provides the key at runtime
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const locationName = selectedBgy === 'ALL' ? 'Quezon City (City-Wide)' : barangays.find(b => b.id.toString() === selectedBgy)?.name || 'the selected area';
 
@@ -244,7 +244,17 @@ export default function App() {
       while (retries < maxRetries) {
         try {
           const response = await fetch(url, options);
-          if (!response.ok) throw new Error('HTTP error');
+          if (!response.ok) {
+            // Extract the actual error message from Google's servers
+            const errorData = await response.json().catch(() => ({}));
+            console.error(`API Error on attempt ${retries + 1}:`, errorData);
+            
+            // If it's a 400 Bad Request or 404 Not Found, retrying won't help
+            if (response.status === 400 || response.status === 404) {
+               throw new Error(`Fatal HTTP ${response.status}: ${errorData?.error?.message || 'Unknown Error'}`);
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
           return await response.json();
         } catch (error) {
           retries++;
