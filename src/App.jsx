@@ -301,7 +301,7 @@ export default function App() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+            <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-2xl border-2 border-slate-100">
               <Filter className="w-4 h-4 text-slate-400" />
               <select 
                 value={selectedBgy}
@@ -317,7 +317,7 @@ export default function App() {
             <button 
               onClick={fetchDashboardData}
               disabled={isLoading}
-              className="bg-[#1E40AF] text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-800 transition-colors shadow-md disabled:opacity-50"
+              className="bg-[#1E40AF] text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-800 transition-all active:scale-95 shadow-md disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> 
               {isLoading ? 'Syncing...' : 'Refresh'}
@@ -368,8 +368,8 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Demographics: Age Group */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-            <h2 className="text-lg font-bold mb-6 text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-indigo-600"/> Demographic Distribution</h2>
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+            <h2 className="text-lg font-black mb-6 text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-indigo-600"/> Demographic Distribution</h2>
             <div className="space-y-4">
               {ageData.map((item) => {
                 const maxCount = Math.max(...ageData.map(d => d.count), 1);
@@ -398,8 +398,8 @@ export default function App() {
           </div>
 
           {/* Equity: Source Inclusion */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-            <h2 className="text-lg font-bold mb-6 text-slate-900 flex items-center gap-2"><PieChart className="w-5 h-5 text-teal-600"/> Data Source Inclusion</h2>
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+            <h2 className="text-lg font-black mb-6 text-slate-900 flex items-center gap-2"><PieChart className="w-5 h-5 text-teal-600"/> Data Source Inclusion</h2>
             <div className="grid grid-cols-1 gap-4">
               {sourceData.map((item) => {
                 const total = sourceData.reduce((sum, d) => sum + d.count, 0) || 1;
@@ -432,9 +432,9 @@ export default function App() {
 
           {/* Barangay Rankings (Only visible on City-Wide Overview) */}
           {selectedBgy === 'ALL' && (
-            <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm mt-4">
+            <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm mt-4">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Map className="w-5 h-5 text-amber-500"/> City-Wide Leaderboard</h2>
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2"><Map className="w-5 h-5 text-amber-500"/> City-Wide Leaderboard</h2>
                 <div className="flex bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
                   <button 
                     onClick={() => setLeaderboardMetric('steps')} 
@@ -511,7 +511,7 @@ export default function App() {
             <button 
               onClick={generateAISummary}
               disabled={isGeneratingAI || stats.totalPolled === 0}
-              className="mt-6 w-fit px-8 py-3 bg-white text-[#1E40AF] font-bold rounded-xl hover:bg-blue-50 transition-colors relative z-10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-blue-900/20"
+              className="mt-6 w-fit px-8 py-3 bg-white text-[#1E40AF] font-bold rounded-xl hover:bg-blue-50 transition-all active:scale-95 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-blue-900/20"
             >
               {isGeneratingAI ? 'Generating...' : 'Generate AI Executive Summary'}
             </button>
