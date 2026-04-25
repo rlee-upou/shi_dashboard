@@ -115,27 +115,12 @@ export default function App() {
       ? rawData 
       : rawData.filter(log => log.residents?.barangay_id.toString() === selectedBgy);
 
-    // 2. MULTI-DAY DEDUPLICATION (Personal Averages)
-    const residentAggregates = {};
-    filteredLogs.forEach(log => {
-      const rId = log.resident_id;
-      if (!residentAggregates[rId]) {
-        residentAggregates[rId] = { 
-          steps: 0, mins: 0, count: 0, 
-          age: log.residents?.age_group || 'Unknown', 
-          source: log.residents?.primary_source || 'Unknown' 
-        };
-      }
-      residentAggregates[rId].steps += (log.daily_steps || 0);
-      residentAggregates[rId].mins += (log.weekly_exercise_mins || 0);
-      residentAggregates[rId].count += 1;
-    });
-
-    const personalAverages = Object.values(residentAggregates).map(r => ({
-      avg_steps: r.steps / r.count,
-      avg_mins: r.mins / r.count,
-      age: r.age,
-      source: r.source
+    // 2. FORMAT DATA (daily_steps is already a weekly average per user)
+    const personalAverages = filteredLogs.map(log => ({
+      avg_steps: log.daily_steps || 0,
+      avg_mins: log.weekly_exercise_mins || 0,
+      age: log.residents?.age_group || 'Unknown',
+      source: log.residents?.primary_source || 'Unknown'
     }));
 
     const totalUnique = personalAverages.length;
