@@ -379,18 +379,6 @@ export default function App() {
 
         </div>
 
-        {/* Raw Data Export */}
-        <div className="mt-12 flex justify-center border-t border-slate-200 pt-8">
-          <button 
-            onClick={downloadRawData}
-            disabled={rawData.length === 0}
-            className="text-slate-500 hover:text-[#1E40AF] text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            Download Raw Activity Logs (Excel/CSV)
-          </button>
-        </div>
-
         {/* Drill-Down Visualizations */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
@@ -544,6 +532,18 @@ export default function App() {
             </button>
           </div>
 
+        </div>
+
+        {/* Raw Data Export */}
+        <div className="mt-12 flex justify-center border-t border-slate-200 pt-8">
+          <button 
+            onClick={downloadRawData}
+            disabled={rawData.length === 0}
+            className="text-slate-500 hover:text-[#1E40AF] text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            Download Raw Activity Logs (Excel/CSV)
+          </button>
         </div>
       </div>
     </div>
