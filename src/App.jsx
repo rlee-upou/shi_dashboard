@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 import { 
-  Activity, Users, TrendingUp, CheckCircle, AlertCircle, Map, Clock, LayoutDashboard, RefreshCw, Filter, PieChart, BarChart3, Smartphone, UserCheck, ShieldCheck, Loader2
+  Activity, Users, TrendingUp, CheckCircle, AlertCircle, Map, Clock, LayoutDashboard, RefreshCw, Filter, PieChart, BarChart3, Smartphone, UserCheck, ShieldCheck, Loader2, Download
 } from 'lucide-react';
 
 // ==========================================
@@ -269,6 +269,35 @@ export default function App() {
     }
   };
 
+  const downloadRawData = () => {
+    if (!rawData || rawData.length === 0) return;
+
+    const headers = ['Resident ID', 'Barangay', 'Age Group', 'Primary Source', 'Daily Steps', 'Weekly Exercise Mins'];
+    
+    const csvRows = rawData.map(log => {
+      const bgyName = barangays.find(b => b.id === log.residents?.barangay_id)?.name || 'Unknown';
+      return [
+        log.resident_id,
+        `"${bgyName}"`, // Quoted to safely handle potential commas in names
+        log.residents?.age_group,
+        log.residents?.primary_source,
+        log.daily_steps,
+        log.weekly_exercise_mins
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'raw_activity_logs.csv'); // Opens directly in Excel
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -347,6 +376,19 @@ export default function App() {
               </div>
             </div>
           </div>
+
+        </div>
+
+        {/* Raw Data Export */}
+        <div className="mt-12 flex justify-center border-t border-slate-200 pt-8">
+          <button 
+            onClick={downloadRawData}
+            disabled={rawData.length === 0}
+            className="text-slate-500 hover:text-[#1E40AF] text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            Download Raw Activity Logs (Excel/CSV)
+          </button>
         </div>
 
         {/* Drill-Down Visualizations */}
