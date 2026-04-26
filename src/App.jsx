@@ -135,7 +135,7 @@ export default function App() {
       '55-64': { count: 0, steps: 0, mins: 0 }, 
       '65+': { count: 0, steps: 0, mins: 0 } 
     };
-    const sources = { 'STRAVA_API': 0, 'WEB_PORTAL': 0, 'FIELD_AGENT': 0 };
+    const sources = { 'HEALTH_CONNECT': 0, 'WEB_PORTAL': 0, 'FIELD_AGENT': 0 };
 
     personalAverages.forEach(p => {
       sumSteps += p.avg_steps;
