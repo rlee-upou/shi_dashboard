@@ -424,7 +424,7 @@ export default function App() {
                 let icon = null;
                 let color = '';
                 
-                if(item.source === 'STRAVA_API') { label = 'Gadget Integration'; icon = <Smartphone className="w-4 h-4"/>; color = 'bg-orange-500'; }
+                if(item.source === 'HEALTH_CONNECT') { label = 'Gadget Integration'; icon = <Smartphone className="w-4 h-4"/>; color = 'bg-orange-500'; }
                 if(item.source === 'WEB_PORTAL') { label = 'Resident Portal (Self)'; icon = <UserCheck className="w-4 h-4"/>; color = 'bg-teal-500'; }
                 if(item.source === 'FIELD_AGENT') { label = 'Field Agent (Manual)'; icon = <ShieldCheck className="w-4 h-4"/>; color = 'bg-blue-600'; }
 
