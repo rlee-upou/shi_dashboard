@@ -309,19 +309,44 @@ export default function App() {
     setIsGeneratingAI(true);
     setAiSummary('');
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // The execution environment provides the key at runtime
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const locationName = selectedBgy === 'ALL' ? 'Quezon City (City-Wide)' : barangays.find(b => b.id.toString() === selectedBgy)?.name || 'the selected area';
 
-    const systemInstruction = `You are an Expert Public Health Policy Consultant for Quezon City LGUs. Write a professional executive summary in paragraph form. Analyze the provided physical activity data and provide actionable recommendations. Your primary objective is to help officials quickly understand the community's current baseline and propose strategies to motivate residents to achieve the target of 10,000 average daily steps and 150 minutes of weekly exercise. Provide your response entirely in cohesive paragraphs, without using bullet points, lists, or markdown formatting. Limit your response to 200 words only`;
+    // --- 1. EXTRACT NEW GRANULAR METRICS FOR THE AI ---
+    // Filter rawData safely based on current selection
+    const currentLogs = selectedBgy === 'ALL' ? rawData : rawData.filter(l => l.residents?.barangay_id.toString() === selectedBgy);
+    const totalCount = currentLogs.length || 1;
+    
+    // Calculate average minutes per modality
+    const avgWalk = Math.round(currentLogs.reduce((s, l) => s + (l.walking_mins_weekly || 0), 0) / totalCount);
+    const avgRun = Math.round(currentLogs.reduce((s, l) => s + (l.running_mins_weekly || 0), 0) / totalCount);
+    const avgBike = Math.round(currentLogs.reduce((s, l) => s + (l.biking_mins_weekly || 0), 0) / totalCount);
+    const avgOther = Math.round(currentLogs.reduce((s, l) => s + (l.other_sports_mins_weekly || 0), 0) / totalCount);
+
+    // Identify the specific age demographic with the highest sedentary risk
+    const highestRiskSegment = [...genderAgeData].sort((a, b) => 
+      Math.max(b.Male, b.Female) - Math.max(a.Male, a.Female)
+    )[0];
+
+    // --- 2. ENHANCED PROMPTING STRUCTURE ---
+    const systemInstruction = `You are a Senior Public Health Policy Architect for the Quezon City Government. Your task is to transform multimodal physical activity data into a highly prescriptive executive summary. You must analyze the specific mix of exercise types (walking vs. biking vs. running) and demographic risk gaps to propose localized health interventions. Address the "Digital Divide" by acknowledging the balance between gadget-synced data and field-agent manual reports to ensure inclusive policy. Provide your analysis in cohesive, professional paragraphs without any lists, bullets, or markdown formatting. Your response must be under 300 words.`;
 
     const userQuery = `
-      Location: ${locationName}
-      Total Residents Polled: ${stats.totalPolled} (${penetrationRate}% of target population)
-      Average Daily Steps: ${stats.avgSteps}
-      Average Weekly Exercise: ${stats.avgExercise} minutes
-      Sedentary Rate (< 5k steps/day): ${stats.sedentaryRate}%
+      Location Context: ${locationName}
+      Baseline Coverage: ${stats.totalPolled} residents (${penetrationRate}% of target population).
+      
+      --- Movement & Risk Profile ---
+      City-Wide Averages: ${stats.avgSteps} steps/day and ${stats.avgExercise} exercise mins/week.
+      Sedentary Benchmark: ${stats.sedentaryRate}% of the population fail both the 150-min exercise and 5k step thresholds.
+      Demographic Gap: The highest sedentary risk is currently observed in the ${highestRiskSegment?.age || 'Unknown'} age bracket.
+
+      --- Modality & Infrastructure Mix (Avg Weekly Mins) ---
+      Walking: ${avgWalk} | Running: ${avgRun} | Biking: ${avgBike} | Other Sports: ${avgOther}
+      
+      --- Data Inclusivity ---
+      Reporting Sources: ${sourceData.map(s => `${s.source}: ${s.count}`).join(', ')}.
     `;
 
     const payload = {
@@ -335,11 +360,8 @@ export default function App() {
         try {
           const response = await fetch(url, options);
           if (!response.ok) {
-            // Extract the actual error message from Google's servers
             const errorData = await response.json().catch(() => ({}));
             console.error(`API Error on attempt ${retries + 1}:`, errorData);
-            
-            // If it's a 400 Bad Request or 404 Not Found, retrying won't help
             if (response.status === 400 || response.status === 404) {
                throw new Error(`Fatal HTTP ${response.status}: ${errorData?.error?.message || 'Unknown Error'}`);
             }
