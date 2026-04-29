@@ -283,47 +283,12 @@ export default function App() {
 
     const systemInstruction = `You are an Expert Public Health Policy Consultant for Quezon City LGUs. Write a professional executive summary in paragraph form. Analyze the provided physical activity data and provide actionable recommendations. Your primary objective is to help officials quickly understand the community's current baseline and propose strategies to motivate residents to achieve the target of 10,000 average daily steps and 150 minutes of weekly exercise. Provide your response entirely in cohesive paragraphs, without using bullet points, lists, or markdown formatting. Limit your response to 200 words only`;
 
-// --- 1. Calculate the new granular averages for the AI ---
-    // (Assuming filteredLogs is accessible in this function's scope)
-    const totalCount = filteredLogs.length || 1;
-    
-    // Modality Averages
-    const avgWalk = Math.round(filteredLogs.reduce((sum, log) => sum + (log.walking_mins_weekly || 0), 0) / totalCount);
-    const avgRun = Math.round(filteredLogs.reduce((sum, log) => sum + (log.running_mins_weekly || 0), 0) / totalCount);
-    const avgBike = Math.round(filteredLogs.reduce((sum, log) => sum + (log.biking_mins_weekly || 0), 0) / totalCount);
-    const avgOther = Math.round(filteredLogs.reduce((sum, log) => sum + (log.other_sports_mins_weekly || 0), 0) / totalCount);
-
-    // Demographic Distribution
-    const maleCount = filteredLogs.filter(log => log.residents?.gender_at_birth === 'Male').length;
-    const percentMale = Math.round((maleCount / totalCount) * 100);
-    const percentFemale = 100 - percentMale; // Assuming binary for the baseline
-
-    // Activity Tier Distribution (Using the counters we made earlier)
-    const activeRate = Math.round((activeCount / totalCount) * 100);
-    const somewhatActiveRate = Math.round((somewhatActiveCount / totalCount) * 100);
-    const lowActiveRate = Math.round((lowActiveCount / totalCount) * 100);
-
-    // --- 2. Construct the Comprehensive Prompt ---
     const userQuery = `
       Location: ${locationName}
       Total Residents Polled: ${stats.totalPolled} (${penetrationRate}% of target population)
-      Demographics: ${percentMale}% Male, ${percentFemale}% Female
-      
-      --- Baseline Movement ---
       Average Daily Steps: ${stats.avgSteps}
-      Average Weekly Exercise (Total): ${stats.avgExercise} minutes
-      
-      --- Modality Breakdown (Avg Weekly Minutes) ---
-      Walking: ${avgWalk} mins
-      Running: ${avgRun} mins
-      Biking: ${avgBike} mins
-      Other Sports: ${avgOther} mins
-      
-      --- Risk & Activity Distribution ---
-      Sedentary Rate (Fails 150-min target AND < 5k steps/day): ${stats.sedentaryRate}%
-      Low Active (5,000 - 7,499 steps): ${lowActiveRate}%
-      Somewhat Active (7,500 - 9,999 steps): ${somewhatActiveRate}%
-      Highly Active (Met 150-min WHO target OR 10k+ steps): ${activeRate}%
+      Average Weekly Exercise: ${stats.avgExercise} minutes
+      Sedentary Rate (< 5k steps/day): ${stats.sedentaryRate}%
     `;
 
     const payload = {
