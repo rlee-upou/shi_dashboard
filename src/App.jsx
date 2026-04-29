@@ -85,6 +85,7 @@ export default function App() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [modalityData, setModalityData] = useState([]);
   const [genderRadarData, setGenderRadarData] = useState([]);
+  const [genderAgeData, setGenderAgeData] = useState([]);
 
   // Fetch Live Data
   const fetchDashboardData = async () => {
@@ -212,6 +213,38 @@ export default function App() {
       modalityMap[bId].Other += (log.other_sports_mins_weekly || 0);
     });
     setModalityData(Object.values(modalityMap));
+
+    // --- COMPUTE GENDER-AGE SEDENTARY DATA ---
+    const ageBuckets = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
+    const genderAgeStats = ageBuckets.map(age => ({
+      age, Male_Sedentary: 0, Male_Total: 0, Female_Sedentary: 0, Female_Total: 0
+    }));
+
+    filteredLogs.forEach(log => {
+      const age = log.residents?.age_group;
+      const gender = log.residents?.gender_at_birth;
+      const mins = (log.walking_mins_weekly || 0) + (log.running_mins_weekly || 0) + (log.biking_mins_weekly || 0) + (log.other_sports_mins_weekly || 0);
+      const steps = log.daily_steps || 0;
+      
+      const isSedentary = mins < 150 && steps < 5000;
+      const bucket = genderAgeStats.find(b => b.age === age);
+      
+      if (bucket) {
+        if (gender === 'Male') {
+          bucket.Male_Total++;
+          if (isSedentary) bucket.Male_Sedentary++;
+        } else if (gender === 'Female') {
+          bucket.Female_Total++;
+          if (isSedentary) bucket.Female_Sedentary++;
+        }
+      }
+    });
+
+    setGenderAgeData(genderAgeStats.map(b => ({
+      age: b.age,
+      Male: b.Male_Total > 0 ? Math.round((b.Male_Sedentary / b.Male_Total) * 100) : 0,
+      Female: b.Female_Total > 0 ? Math.round((b.Female_Sedentary / b.Female_Total) * 100) : 0
+    })));
 
     // --- COMPUTE GENDER RADAR DATA ---
     let maleTotals = { count: 0, walk: 0, run: 0, bike: 0, sport: 0 };
@@ -454,34 +487,35 @@ export default function App() {
         {/* Drill-Down Visualizations */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* Demographics: Age Group */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-            <h2 className="text-lg font-black mb-6 text-slate-900 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-indigo-600"/> Demographic Distribution</h2>
-            <div className="space-y-4">
-              {ageData.map((item) => {
-                const maxCount = Math.max(...ageData.map(d => d.count), 1);
-                const percent = ((item.count / maxCount) * 100).toFixed(0);
-                return (
-                  <div key={item.age} className="space-y-1">
-                    <div className="flex items-center gap-4">
-                      <span className="w-16 text-sm font-bold text-slate-600 text-right">{item.age}</span>
-                      <div className="flex-grow bg-slate-100 h-6 rounded-lg overflow-hidden flex items-center">
-                        <div className="bg-indigo-500 h-full transition-all duration-1000 flex items-center justify-end px-2" style={{ width: `${percent}%` }}>
-                          {item.count > 0 && <span className="text-[10px] font-bold text-white">{item.count}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    {item.count > 0 && (
-                      <div className="flex gap-4 pl-20 text-[10px] font-medium text-slate-500">
-                        <span className="flex items-center gap-1"><Activity className="w-3 h-3 text-indigo-400"/> {item.avgSteps.toLocaleString()} steps</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-teal-400"/> {item.avgMins} mins</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+          {/* Sedentary Gap (Gender vs Age) */}
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
+            <h2 className="text-lg font-black mb-1 text-slate-900 flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-600"/> Sedentary Risk by Gender & Age
+            </h2>
+            <p className="text-sm text-slate-400 font-medium mb-6">Percentage of sedentary population within each demographic segment</p>
+            
+            <div className="flex-1 min-h-[300px]">
+              {genderAgeData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={genderAgeData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="age" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 500}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} unit="%" />
+                    <Tooltip 
+                      cursor={{fill: '#f8fafc'}}
+                      contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                      itemStyle={{ fontWeight: 'bold' }}
+                      formatter={(value) => [`${value}%`, undefined]}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px', fontSize: '13px', fontWeight: '600', color: '#334155' }} />
+                    <Bar dataKey="Male" name="Male Sedentary %" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Female" name="Female Sedentary %" fill="#ec4899" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 font-medium">No demographic data available.</div>
+              )}
             </div>
-            <p className="text-xs text-slate-400 italic mt-6 text-center">Data helps identify if specific age cohorts lack wellness programming.</p>
           </div>
 
           {/* Equity: Source Inclusion */}
