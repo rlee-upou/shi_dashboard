@@ -135,7 +135,9 @@ export default function App() {
     const totalUnique = personalAverages.length;
 
     // 3. COMPUTE KPIs
-    let sumSteps = 0, sumMins = 0, sedentaryCount = 0;
+    // NEW CODE 
+    let sumSteps = 0, sumMins = 0;
+    let sedentaryCount = 0, lowActiveCount = 0, somewhatActiveCount = 0, activeCount = 0;
     const ageGroups = { 
       '18-24': { count: 0, steps: 0, mins: 0 }, 
       '25-34': { count: 0, steps: 0, mins: 0 }, 
@@ -149,7 +151,21 @@ export default function App() {
     personalAverages.forEach(p => {
       sumSteps += p.avg_steps;
       sumMins += p.avg_mins;
-      if (p.avg_steps < 5000) sedentaryCount++;
+      // --- NEW SEDENTARY LOGIC (WHO Standard) ---
+      if (p.avg_mins >= 150) {
+        activeCount++;
+      } else {
+        if (p.avg_steps < 5000) {
+          sedentaryCount++;
+        } else if (p.avg_steps >= 5000 && p.avg_steps <= 7499) {
+          lowActiveCount++;
+        } else if (p.avg_steps >= 7500 && p.avg_steps <= 9999) {
+          somewhatActiveCount++;
+        } else if (p.avg_steps >= 10000) {
+          activeCount++;
+        }
+      }
+      // ------------------------------------------
       if (ageGroups[p.age] !== undefined) {
         ageGroups[p.age].count++;
         ageGroups[p.age].steps += p.avg_steps;
@@ -265,14 +281,49 @@ export default function App() {
 
     const locationName = selectedBgy === 'ALL' ? 'Quezon City (City-Wide)' : barangays.find(b => b.id.toString() === selectedBgy)?.name || 'the selected area';
 
-    const systemInstruction = `You are an Expert Public Health Policy Consultant for Quezon City LGUs. Write a professional executive summary in paragraph form. Analyze the provided physical activity data and provide actionable recommendations. Your primary objective is to help officials quickly understand the community's current baseline and propose strategies to motivate residents to achieve the target of 10,000 average daily steps and 150 minutes of weekly exercise. Provide your response entirely in cohesive paragraphs, without using bullet points, lists, or markdown formatting.`;
+    const systemInstruction = `You are an Expert Public Health Policy Consultant for Quezon City LGUs. Write a professional executive summary in paragraph form. Analyze the provided physical activity data and provide actionable recommendations. Your primary objective is to help officials quickly understand the community's current baseline and propose strategies to motivate residents to achieve the target of 10,000 average daily steps and 150 minutes of weekly exercise. Provide your response entirely in cohesive paragraphs, without using bullet points, lists, or markdown formatting. Limit your response to 200 words only`;
 
+// --- 1. Calculate the new granular averages for the AI ---
+    // (Assuming filteredLogs is accessible in this function's scope)
+    const totalCount = filteredLogs.length || 1;
+    
+    // Modality Averages
+    const avgWalk = Math.round(filteredLogs.reduce((sum, log) => sum + (log.walking_mins_weekly || 0), 0) / totalCount);
+    const avgRun = Math.round(filteredLogs.reduce((sum, log) => sum + (log.running_mins_weekly || 0), 0) / totalCount);
+    const avgBike = Math.round(filteredLogs.reduce((sum, log) => sum + (log.biking_mins_weekly || 0), 0) / totalCount);
+    const avgOther = Math.round(filteredLogs.reduce((sum, log) => sum + (log.other_sports_mins_weekly || 0), 0) / totalCount);
+
+    // Demographic Distribution
+    const maleCount = filteredLogs.filter(log => log.residents?.gender_at_birth === 'Male').length;
+    const percentMale = Math.round((maleCount / totalCount) * 100);
+    const percentFemale = 100 - percentMale; // Assuming binary for the baseline
+
+    // Activity Tier Distribution (Using the counters we made earlier)
+    const activeRate = Math.round((activeCount / totalCount) * 100);
+    const somewhatActiveRate = Math.round((somewhatActiveCount / totalCount) * 100);
+    const lowActiveRate = Math.round((lowActiveCount / totalCount) * 100);
+
+    // --- 2. Construct the Comprehensive Prompt ---
     const userQuery = `
       Location: ${locationName}
       Total Residents Polled: ${stats.totalPolled} (${penetrationRate}% of target population)
+      Demographics: ${percentMale}% Male, ${percentFemale}% Female
+      
+      --- Baseline Movement ---
       Average Daily Steps: ${stats.avgSteps}
-      Average Weekly Exercise: ${stats.avgExercise} minutes
-      Sedentary Rate (< 5k steps/day): ${stats.sedentaryRate}%
+      Average Weekly Exercise (Total): ${stats.avgExercise} minutes
+      
+      --- Modality Breakdown (Avg Weekly Minutes) ---
+      Walking: ${avgWalk} mins
+      Running: ${avgRun} mins
+      Biking: ${avgBike} mins
+      Other Sports: ${avgOther} mins
+      
+      --- Risk & Activity Distribution ---
+      Sedentary Rate (Fails 150-min target AND < 5k steps/day): ${stats.sedentaryRate}%
+      Low Active (5,000 - 7,499 steps): ${lowActiveRate}%
+      Somewhat Active (7,500 - 9,999 steps): ${somewhatActiveRate}%
+      Highly Active (Met 150-min WHO target OR 10k+ steps): ${activeRate}%
     `;
 
     const payload = {
@@ -410,7 +461,7 @@ export default function App() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <MetricCard title="Avg Daily Steps" value={stats.avgSteps} unit="steps" icon={Activity} description="Community daily average" colorClass="bg-indigo-600" />
           <MetricCard title="Weekly Exercise" value={stats.avgExercise} unit="mins" icon={Clock} description="Intentional physical activity" colorClass="bg-teal-600" />
-          <MetricCard title="Sedentary Rate" value={stats.sedentaryRate} unit="%" icon={AlertCircle} status={stats.sedentaryRate > 40 ? "Critical" : "Stable"} description="Residents < 5k steps daily" colorClass="bg-rose-600" />
+          <MetricCard title="Sedentary Rate" value={stats.sedentaryRate} unit="%" icon={AlertCircle} status={stats.sedentaryRate > 40 ? "Critical" : "Stable"} description="Fails 150-min target AND < 5k steps" colorClass="bg-rose-600" />
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-start mb-2">
