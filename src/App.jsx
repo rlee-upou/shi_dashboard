@@ -7,6 +7,8 @@ import {
   Activity, Users, TrendingUp, CheckCircle, AlertCircle, Map, Clock, LayoutDashboard, RefreshCw, Filter, PieChart, BarChart3, Smartphone, UserCheck, ShieldCheck, Loader2, Download
 } from 'lucide-react';
 
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+
 // ==========================================
 // SUPABASE INITIALIZATION & MOCK DATA
 // ==========================================
@@ -414,8 +416,54 @@ export default function App() {
 
           {/* Equity: Source Inclusion */}
           <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-            <h2 className="text-lg font-black mb-6 text-slate-900 flex items-center gap-2"><PieChart className="w-5 h-5 text-teal-600"/> Data Source Inclusion</h2>
-            <div className="grid grid-cols-1 gap-4">
+            <h2 className="text-lg font-black mb-6 text-slate-900 flex items-center gap-2">
+              <PieChart className="w-5 h-5 text-teal-600"/> Data Source Inclusion
+            </h2>
+            
+            {/* --- NEW PIE CHART SECTION --- */}
+            <div className="h-48 w-full mb-6">
+              {sourceData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={sourceData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="count"
+                      stroke="none"
+                    >
+                      {sourceData.map((entry, index) => {
+                        // Map Tailwind colors to Hex for the SVG cells
+                        let cellColor = '#94a3b8'; // default slate
+                        if(entry.source === 'HEALTH_CONNECT') cellColor = '#f97316'; // orange-500
+                        if(entry.source === 'WEB_PORTAL') cellColor = '#14b8a6'; // teal-500
+                        if(entry.source === 'FIELD_AGENT') cellColor = '#2563eb'; // blue-600
+                        
+                        return <Cell key={`cell-${index}`} fill={cellColor} />;
+                      })}
+                    </Pie>
+                    <Tooltip 
+                      itemStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                      contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value, name) => {
+                        const labels = { 'HEALTH_CONNECT': 'Gadget', 'WEB_PORTAL': 'Portal', 'FIELD_AGENT': 'Agent' };
+                        return [value, labels[name] || name];
+                      }}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm font-medium text-slate-400">
+                  No data available
+                </div>
+              )}
+            </div>
+
+            {/* --- EXISTING LEGEND/CARDS (Slightly more compact) --- */}
+            <div className="grid grid-cols-1 gap-3">
               {sourceData.map((item) => {
                 const total = sourceData.reduce((sum, d) => sum + d.count, 0) || 1;
                 const percent = Math.round((item.count / total) * 100);
@@ -429,20 +477,20 @@ export default function App() {
                 if(item.source === 'FIELD_AGENT') { label = 'Field Agent (Manual)'; icon = <ShieldCheck className="w-4 h-4"/>; color = 'bg-blue-600'; }
 
                 return (
-                  <div key={item.source} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                  <div key={item.source} className="flex items-center justify-between p-3 rounded-2xl border border-slate-100 bg-slate-50 transition-all hover:border-slate-200">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg text-white ${color}`}>{icon}</div>
                       <div>
-                        <p className="font-bold text-slate-800 text-sm">{label}</p>
-                        <p className="text-xs text-slate-500">{percent}% of baseline</p>
+                        <p className="font-bold text-slate-800 text-sm leading-tight">{label}</p>
+                        <p className="text-[11px] font-medium text-slate-500">{percent}% of baseline</p>
                       </div>
                     </div>
-                    <div className="text-xl font-black text-slate-900">{item.count}</div>
+                    <div className="text-lg font-black text-slate-900">{item.count.toLocaleString()}</div>
                   </div>
                 );
               })}
             </div>
-            <p className="text-xs text-slate-400 italic mt-6 text-center">Ensures the "Digitally Disconnected" are represented in the census.</p>
+            <p className="text-xs text-slate-400 italic mt-5 text-center">Ensures the "Digitally Disconnected" are represented in the census.</p>
           </div>
 
           {/* Barangay Rankings (Only visible on City-Wide Overview) */}
