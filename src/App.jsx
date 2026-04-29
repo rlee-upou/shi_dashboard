@@ -7,7 +7,7 @@ import {
   Activity, Users, TrendingUp, CheckCircle, AlertCircle, Map, Clock, LayoutDashboard, RefreshCw, Filter, PieChart, BarChart3, Smartphone, UserCheck, ShieldCheck, Loader2, Download
 } from 'lucide-react';
 
-import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
 
 // ==========================================
 // SUPABASE INITIALIZATION & MOCK DATA
@@ -83,6 +83,8 @@ export default function App() {
   const [leaderboardMetric, setLeaderboardMetric] = useState('steps'); // 'steps' or 'exercise'
   const [aiSummary, setAiSummary] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [modalityData, setModalityData] = useState([]);
+  const [genderRadarData, setGenderRadarData] = useState([]);
 
   // Fetch Live Data
   const fetchDashboardData = async () => {
@@ -93,7 +95,12 @@ export default function App() {
 
       const { data: logs } = await supabase
         .from('activity_logs')
-        .select(`resident_id, daily_steps, weekly_exercise_mins, residents ( barangay_id, age_group, primary_source )`)
+        //.select(`resident_id, daily_steps, weekly_exercise_mins, residents ( barangay_id, age_group, primary_source )`)
+        .select(`
+          resident_id, daily_steps, weekly_exercise_mins, 
+          walking_mins_weekly, running_mins_weekly, biking_mins_weekly, other_sports_mins_weekly, 
+          residents ( barangay_id, age_group, primary_source, gender_at_birth )
+        `)
         .limit(1000000);
       
       setRawData(logs || []);
@@ -171,6 +178,53 @@ export default function App() {
       avgMins: data.count > 0 ? Math.round(data.mins / data.count) : 0
     })));
     setSourceData(Object.entries(sources).map(([source, count]) => ({ source, count })));
+
+
+    // --- COMPUTE MODALITY MIX DATA ---
+    const modalityMap = {};
+    filteredLogs.forEach(log => {
+      const bId = log.residents?.barangay_id;
+      if (!bId) return;
+      const bgyName = barangays.find(b => b.id === bId)?.name || `Barangay ${bId}`;
+      
+      if (!modalityMap[bId]) {
+        modalityMap[bId] = { barangay: bgyName, Walking: 0, Running: 0, Biking: 0, Other: 0 };
+      }
+      modalityMap[bId].Walking += (log.walking_mins_weekly || 0);
+      modalityMap[bId].Running += (log.running_mins_weekly || 0);
+      modalityMap[bId].Biking += (log.biking_mins_weekly || 0);
+      modalityMap[bId].Other += (log.other_sports_mins_weekly || 0);
+    });
+    setModalityData(Object.values(modalityMap));
+
+    // --- COMPUTE GENDER RADAR DATA ---
+    let maleTotals = { count: 0, walk: 0, run: 0, bike: 0, sport: 0 };
+    let femaleTotals = { count: 0, walk: 0, run: 0, bike: 0, sport: 0 };
+
+    filteredLogs.forEach(log => {
+      const gender = log.residents?.gender_at_birth;
+      if (gender === 'Male') {
+        maleTotals.count++;
+        maleTotals.walk += (log.walking_mins_weekly || 0);
+        maleTotals.run += (log.running_mins_weekly || 0);
+        maleTotals.bike += (log.biking_mins_weekly || 0);
+        maleTotals.sport += (log.other_sports_mins_weekly || 0);
+      } else if (gender === 'Female') {
+        femaleTotals.count++;
+        femaleTotals.walk += (log.walking_mins_weekly || 0);
+        femaleTotals.run += (log.running_mins_weekly || 0);
+        femaleTotals.bike += (log.biking_mins_weekly || 0);
+        femaleTotals.sport += (log.other_sports_mins_weekly || 0);
+      }
+    });
+
+    const safeAvg = (total, count) => count > 0 ? Math.round(total / count) : 0;
+    setGenderRadarData([
+      { subject: 'Walking', Male: safeAvg(maleTotals.walk, maleTotals.count), Female: safeAvg(femaleTotals.walk, femaleTotals.count), fullMark: 200 },
+      { subject: 'Running', Male: safeAvg(maleTotals.run, maleTotals.count), Female: safeAvg(femaleTotals.run, femaleTotals.count), fullMark: 200 },
+      { subject: 'Biking', Male: safeAvg(maleTotals.bike, maleTotals.count), Female: safeAvg(femaleTotals.bike, femaleTotals.count), fullMark: 200 },
+      { subject: 'Sports', Male: safeAvg(maleTotals.sport, maleTotals.count), Female: safeAvg(femaleTotals.sport, femaleTotals.count), fullMark: 200 },
+    ]);
 
     // 4. COMPUTE CITY RANKINGS (Only if viewing 'ALL')
     if (selectedBgy === 'ALL') {
@@ -491,6 +545,66 @@ export default function App() {
               })}
             </div>
             <p className="text-xs text-slate-400 italic mt-5 text-center">Ensures the "Digitally Disconnected" are represented in the census.</p>
+          </div>
+
+          {/* --- NEW CHART 1: Modality Mix Analysis --- */}
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2 mb-1">
+              <Activity className="w-5 h-5 text-teal-600"/> Exercise Modality by Location
+            </h3>
+            <p className="text-sm text-slate-400 font-medium mb-6">Total weekly minutes categorized by activity type</p>
+            
+            <div className="flex-1 min-h-[350px]">
+              {modalityData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={modalityData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="barangay" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 500}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                    <Tooltip 
+                      cursor={{fill: '#f8fafc'}}
+                      contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                      itemStyle={{ fontWeight: 'bold', padding: '4px 0' }}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '13px', fontWeight: '600', color: '#334155' }} />
+                    <Bar dataKey="Walking" stackId="a" fill="#14b8a6" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="Running" stackId="a" fill="#2563eb" />
+                    <Bar dataKey="Biking" stackId="a" fill="#f97316" />
+                    <Bar dataKey="Other" stackId="a" fill="#64748b" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 font-medium">No modality data available.</div>
+              )}
+            </div>
+          </div>
+
+          {/* --- NEW CHART 2: Gender-Modality Radar --- */}
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2 mb-1">
+              <Users className="w-5 h-5 text-indigo-500"/> Gender Activity Profiles
+            </h3>
+            <p className="text-sm text-slate-400 font-medium mb-6">Average weekly minutes per modality</p>
+            
+            <div className="flex-1 min-h-[350px]">
+              {genderRadarData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={genderRadarData}>
+                    <PolarGrid stroke="#e2e8f0" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#475569', fontSize: 13, fontWeight: 'bold' }} />
+                    <Tooltip
+                       contentStyle={{ borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                       itemStyle={{ fontWeight: 'bold' }}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px', fontSize: '13px', fontWeight: '600' }} />
+                    <Radar name="Male" dataKey="Male" stroke="#3b82f6" strokeWidth={2} fill="#3b82f6" fillOpacity={0.3} />
+                    <Radar name="Female" dataKey="Female" stroke="#ec4899" strokeWidth={2} fill="#ec4899" fillOpacity={0.3} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 font-medium">No demographic data available.</div>
+              )}
+            </div>
           </div>
 
           {/* Barangay Rankings (Only visible on City-Wide Overview) */}
