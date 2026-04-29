@@ -92,7 +92,7 @@ export default function App() {
       const { data: logs } = await supabase
         .from('activity_logs')
         .select(`resident_id, daily_steps, weekly_exercise_mins, residents ( barangay_id, age_group, primary_source )`)
-        .limit(10000);
+        .limit(1000000);
       
       setRawData(logs || []);
     } catch (error) {
