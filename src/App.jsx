@@ -314,33 +314,14 @@ export default function App() {
 
     const locationName = selectedBgy === 'ALL' ? 'Quezon City (City-Wide)' : barangays.find(b => b.id.toString() === selectedBgy)?.name || 'the selected area';
 
-        // Calculate granular intensity and demographic splits
-    const total = filteredLogs.length || 1;
-    const avgWalk = Math.round(filteredLogs.reduce((s, l) => s + (l.walking_mins_weekly || 0), 0) / total);
-    const avgRun = Math.round(filteredLogs.reduce((s, l) => s + (l.running_mins_weekly || 0), 0) / total);
-    const avgBike = Math.round(filteredLogs.reduce((s, l) => s + (l.biking_mins_weekly || 0), 0) / total);
-
-    // Find the highest-risk demographic from your genderAgeData
-    const highestRiskSegment = [...genderAgeData].sort((a, b) => 
-      Math.max(b.Male, b.Female) - Math.max(a.Male, a.Female)
-    )[0];
-
-    const systemInstruction = `You are a Senior Public Health Policy Architect for the Quezon City Government. Your task is to transform multimodal physical activity data into a highly prescriptive executive summary. You must analyze the specific mix of exercise types (walking vs. biking vs. running) and demographic risk gaps to propose localized health interventions. Address the "Digital Divide" by acknowledging the balance between gadget-synced data and field-agent manual reports to ensure inclusive policy. Provide your analysis in cohesive, professional paragraphs without any lists, bullets, or markdown formatting. Your response must be under 200 words.`;
+    const systemInstruction = `You are an Expert Public Health Policy Consultant for Quezon City LGUs. Write a professional executive summary in paragraph form. Analyze the provided physical activity data and provide actionable recommendations. Your primary objective is to help officials quickly understand the community's current baseline and propose strategies to motivate residents to achieve the target of 10,000 average daily steps and 150 minutes of weekly exercise. Provide your response entirely in cohesive paragraphs, without using bullet points, lists, or markdown formatting. Limit your response to 200 words only`;
 
     const userQuery = `
-      Location Context: ${locationName}
-      Baseline Coverage: ${stats.totalPolled} residents (${penetrationRate}% of target population).
-      
-      --- Movement & Risk Profile ---
-      City-Wide Averages: ${stats.avgSteps} steps/day and ${stats.avgExercise} exercise mins/week.
-      Sedentary Benchmark: ${stats.sedentaryRate}% of the population fail both the 150-min exercise and 5k step thresholds.
-      Demographic Gap: The highest sedentary risk is currently observed in the ${highestRiskSegment?.age} age bracket.
-
-      --- Modality & Infrastructure Mix (Avg Weekly Mins) ---
-      Walking: ${avgWalk} | Running: ${avgRun} | Biking: ${avgBike} | Other Sports: ${avgOther}
-      
-      --- Data Inclusivity ---
-      Reporting Sources: ${sourceData.map(s => `${s.source}: ${s.count}`).join(', ')}.
+      Location: ${locationName}
+      Total Residents Polled: ${stats.totalPolled} (${penetrationRate}% of target population)
+      Average Daily Steps: ${stats.avgSteps}
+      Average Weekly Exercise: ${stats.avgExercise} minutes
+      Sedentary Rate (< 5k steps/day): ${stats.sedentaryRate}%
     `;
 
     const payload = {
