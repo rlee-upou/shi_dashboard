@@ -399,17 +399,36 @@ export default function App() {
   const downloadRawData = () => {
     if (!rawData || rawData.length === 0) return;
 
-    const headers = ['Resident ID', 'Barangay', 'Age Group', 'Primary Source', 'Daily Steps', 'Weekly Exercise Mins'];
+    const headers = [
+      'Resident ID', 
+      'Barangay', 
+      'Age Group', 
+      'Gender', 
+      'Primary Source', 
+      'Daily Steps', 
+      'Total Weekly Exercise Mins',
+      'Walking Mins',
+      'Running Mins',
+      'Biking Mins',
+      'Other Sports Mins',
+      'Timestamp'
+    ];
     
     const csvRows = rawData.map(log => {
       const bgyName = barangays.find(b => b.id === log.residents?.barangay_id)?.name || 'Unknown';
       return [
         log.resident_id,
         `"${bgyName}"`, // Quoted to safely handle potential commas in names
-        log.residents?.age_group,
-        log.residents?.primary_source,
-        log.daily_steps,
-        log.weekly_exercise_mins
+        log.residents?.age_group || 'Unknown',
+        log.residents?.gender_at_birth || 'Unknown',
+        log.residents?.primary_source || 'Unknown',
+        log.daily_steps || 0,
+        log.weekly_exercise_mins || 0,
+        log.walking_mins_weekly || 0,
+        log.running_mins_weekly || 0,
+        log.biking_mins_weekly || 0,
+        log.other_sports_mins_weekly || 0,
+        log.local_timestamp
       ].join(',');
     });
 
