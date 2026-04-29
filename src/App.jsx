@@ -99,7 +99,8 @@ export default function App() {
         //.select(`resident_id, daily_steps, weekly_exercise_mins, residents ( barangay_id, age_group, primary_source )`)
         .select(`
           resident_id, daily_steps, weekly_exercise_mins, 
-          walking_mins_weekly, running_mins_weekly, biking_mins_weekly, other_sports_mins_weekly, 
+          walking_mins_weekly, running_mins_weekly, biking_mins_weekly, other_sports_mins_weekly,
+          local_timestamp, 
           residents ( barangay_id, age_group, primary_source, gender_at_birth )
         `)
         .limit(1000000);
