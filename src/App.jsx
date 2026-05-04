@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 import { 
-  Activity, Users, TrendingUp, CheckCircle, AlertCircle, Map, Clock, LayoutDashboard, RefreshCw, Filter, PieChart, BarChart3, Smartphone, UserCheck, ShieldCheck, Loader2, Download
+  Activity, Users, TrendingUp, CheckCircle, AlertCircle, Map, Clock, LayoutDashboard, RefreshCw, Filter, PieChart, BarChart3, Smartphone, UserCheck, ShieldCheck, Loader2, Download, Lock, Mail, LogOut, Key
 } from 'lucide-react';
 
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
@@ -86,6 +86,106 @@ export default function App() {
   const [modalityData, setModalityData] = useState([]);
   const [genderRadarData, setGenderRadarData] = useState([]);
   const [genderAgeData, setGenderAgeData] = useState([]);
+
+  // --- Auth State ---
+  const [session, setSession] = useState(null);
+  const [authMode, setAuthMode] = useState('login'); 
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState('');
+
+  // --- Auth & Role Verification ---
+  const verifyRole = async (currentSession) => {
+    if (!currentSession) {
+      setSession(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('id', currentSession.user.id)
+        .single();
+        
+      if (error) throw error;
+      
+      if (data && data.role === 'researcher') {
+        setSession(currentSession);
+      } else {
+        await supabase.auth.signOut();
+        setAuthError('Access denied: Researcher privileges required.');
+        setSession(null);
+      }
+    } catch (err) {
+      await supabase.auth.signOut();
+      setAuthError('Authentication failed or user role not found.');
+      setSession(null);
+    }
+  };
+
+  useEffect(() => {
+    if (window.location.hash.includes('type=invite') || window.location.hash.includes('type=recovery')) {
+      setAuthMode('update_password');
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) verifyRole(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        verifyRole(session);
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+      }
+      if (event === 'PASSWORD_RECOVERY') setAuthMode('update_password');
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      if (authMode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else if (authMode === 'update_password') {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setAuthMode('login');
+        alert('Password set successfully!');
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => await supabase.auth.signOut();
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setPasswordMsg('');
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setAuthLoading(false);
+    if (error) {
+      setPasswordMsg(error.message);
+    } else {
+      alert('Password updated successfully!');
+      setIsChangingPassword(false);
+      setNewPassword('');
+    }
+  };
 
   // Fetch Live Data
   const fetchDashboardData = async () => {
@@ -304,6 +404,66 @@ export default function App() {
 
   }, [rawData, barangays, selectedBgy]);
 
+  // --- RENDER AUTHENTICATION SCREEN IF NOT LOGGED IN ---
+  if (!session || authMode === 'update_password') {
+    return (
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col justify-center px-4 py-12">
+        <div className="max-w-md mx-auto w-full bg-white rounded-3xl shadow-sm p-8 border border-slate-100">
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="bg-[#1E40AF] text-white p-3 rounded-2xl border border-blue-800 mb-4 shadow-inner">
+              <LayoutDashboard className="w-6 h-6" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">
+              {authMode === 'login' ? 'Researcher Login' : 'Set Your Password'}
+            </h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">
+              {authMode === 'login' 
+                ? 'Secure access to SmartHealthIndex Analytics' 
+                : 'Please create a secure password to activate your account.'}
+            </p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            {authError && (
+              <div className="bg-rose-50 text-rose-600 p-3 rounded-xl text-sm font-bold border border-rose-100 text-center">
+                {authError}
+              </div>
+            )}
+
+            {authMode === 'login' && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-[#1E40AF] uppercase tracking-widest flex items-center gap-1">
+                  <Mail className="w-3 h-3" /> Email Address
+                </label>
+                <input 
+                  type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold focus:border-[#1E40AF] outline-none transition-all"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-[#1E40AF] uppercase tracking-widest flex items-center gap-1">
+                <Lock className="w-3 h-3" /> {authMode === 'login' ? 'Password' : 'New Password'}
+              </label>
+              <input 
+                type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold focus:border-[#1E40AF] outline-none transition-all"
+              />
+            </div>
+
+            <button 
+              type="submit" disabled={authLoading}
+              className="w-full py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 bg-[#1E40AF] text-white shadow-lg shadow-blue-900/20 hover:bg-blue-800 mt-2 disabled:opacity-70"
+            >
+              {authLoading ? 'PLEASE WAIT...' : (authMode === 'login' ? 'LOG IN' : 'SAVE & CONTINUE')}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   const penetrationRate = stats.targetPop > 0 ? ((stats.totalPolled / stats.targetPop) * 100).toFixed(2) : 0;
 
   const generateAISummary = async () => {
@@ -475,6 +635,25 @@ export default function App() {
                 ))}
               </select>
             </div>
+
+            <button 
+              onClick={() => setIsChangingPassword(!isChangingPassword)}
+              className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center transition-all shadow-sm ${
+                isChangingPassword ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Key className="w-4 h-4" />
+            </button>
+            
+            <button 
+              onClick={handleLogout}
+              className="px-4 py-2 bg-white text-rose-600 border border-slate-200 rounded-xl text-sm font-bold flex items-center justify-center hover:bg-rose-50 transition-all shadow-sm"
+              title="Log Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+            {/* -------------------------------------- */}
+
             <button 
               onClick={fetchDashboardData}
               disabled={isLoading}
@@ -485,6 +664,41 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {/* CHANGE PASSWORD FORM */}
+        {isChangingPassword && (
+          <section className="bg-white rounded-3xl shadow-sm p-6 border border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300 mb-8 max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Key className="w-5 h-5 text-[#1E40AF]" />
+                Change Password
+              </h2>
+            </div>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              {passwordMsg && (
+                <div className="bg-rose-50 text-rose-600 p-3 rounded-xl text-xs font-bold border border-rose-100 text-center">
+                  {passwordMsg}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-[#1E40AF] uppercase tracking-widest flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> New Password
+                </label>
+                <input 
+                  type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter a secure password"
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-900 focus:border-[#1E40AF] outline-none transition-all"
+                />
+              </div>
+              <button 
+                type="submit" disabled={authLoading}
+                className="w-full py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 bg-[#1E40AF] text-white shadow-lg shadow-blue-900/20 hover:bg-blue-800 disabled:opacity-70"
+              >
+                {authLoading ? 'SAVING...' : 'UPDATE PASSWORD'}
+              </button>
+            </form>
+          </section>
+        )}
 
         {/* Dynamic Context Banner */}
         <div className="mb-8 flex items-center gap-3 px-2">
