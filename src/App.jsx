@@ -9,43 +9,13 @@ import {
 
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
 
-// ==========================================
-// SUPABASE INITIALIZATION & MOCK DATA
-// ==========================================
-
-// --- CANVAS PREVIEW MOCK ---
-const createClientMock = () => {
-  return {
-    from: (tableName) => ({
-      select: () => Promise.resolve({
-        data: tableName === 'barangays' 
-          ? [
-              { id: 1, name: 'Bgy. UP Campus', target_population: 45000 },
-              { id: 2, name: 'Bgy. Fairview', target_population: 60000 },
-              { id: 3, name: 'Bgy. Payatas', target_population: 120000 },
-              { id: 4, name: 'Bgy. Socorro', target_population: 25000 }
-            ]
-          : [
-              // Mocking joined raw logs to allow for dynamic drill-downs by age and source
-              { resident_id: 'r1', daily_steps: 8500, weekly_exercise_mins: 60, residents: { barangay_id: 1, age_group: '18-24', primary_source: 'STRAVA_API' } },
-              { resident_id: 'r2', daily_steps: 4200, weekly_exercise_mins: 20, residents: { barangay_id: 1, age_group: '65+', primary_source: 'FIELD_AGENT' } },
-              { resident_id: 'r3', daily_steps: 10500, weekly_exercise_mins: 90, residents: { barangay_id: 1, age_group: '25-34', primary_source: 'WEB_PORTAL' } },
-              { resident_id: 'r4', daily_steps: 3000, weekly_exercise_mins: 0, residents: { barangay_id: 3, age_group: '45-54', primary_source: 'FIELD_AGENT' } },
-              { resident_id: 'r5', daily_steps: 2500, weekly_exercise_mins: 15, residents: { barangay_id: 3, age_group: '55-64', primary_source: 'FIELD_AGENT' } },
-              { resident_id: 'r6', daily_steps: 7000, weekly_exercise_mins: 45, residents: { barangay_id: 2, age_group: '35-44', primary_source: 'WEB_PORTAL' } },
-              { resident_id: 'r7', daily_steps: 6500, weekly_exercise_mins: 30, residents: { barangay_id: 4, age_group: '25-34', primary_source: 'STRAVA_API' } },
-              { resident_id: 'r8', daily_steps: 5000, weekly_exercise_mins: 25, residents: { barangay_id: 2, age_group: '18-24', primary_source: 'STRAVA_API' } },
-            ],
-        error: null
-      })
-    })
-  };
-};
-// ---------------------------
+// ==========================
+// SUPABASE INITIALIZATION
+// ==========================
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
-const supabase = createClient(supabaseUrl, supabaseKey); // Swap to true createClient for production
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- COMPONENTS ---
 const MetricCard = ({ title, value, unit, icon: Icon, description, colorClass, status }) => (
@@ -196,7 +166,6 @@ export default function App() {
 
       const { data: logs } = await supabase
         .from('activity_logs')
-        //.select(`resident_id, daily_steps, weekly_exercise_mins, residents ( barangay_id, age_group, primary_source )`)
         .select(`
           resident_id, daily_steps, weekly_exercise_mins, 
           walking_mins_weekly, running_mins_weekly, biking_mins_weekly, other_sports_mins_weekly,
@@ -217,7 +186,7 @@ export default function App() {
     fetchDashboardData();
   }, []);
 
-  // Compute stats whenever rawData or selectedBgy changes
+  // Compute stats whenever selectedBgy changes
   useEffect(() => {
     if (rawData.length === 0 || barangays.length === 0) return;
 
